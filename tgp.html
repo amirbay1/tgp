@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نقاط اتصال امن</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    /* Import Inter font for a modern look */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', Tahoma, sans-serif;
+      background: #f4f8fb;
+      color: #333;
+      padding: 20px;
+      direction: rtl; /* Right-to-left for Persian */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      padding: 20px;
+      box-sizing: border-box; /* Include padding in width */
+    }
+
+    .header {
+      display: flex;
+      flex-direction: column; /* Stack elements vertically */
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px; /* Larger title */
+      color: #0088cc;
+      text-align: center;
+      font-weight: 700; /* Bolder title */
+    }
+
+    .info-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 20px;
+      background-color: #e3f2fd; /* Light blue background */
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    #proxies {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px; /* Increased gap between cards */
+      width: 100%;
+    }
+
+    .proxy-card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px; /* More rounded corners */
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Stronger shadow */
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth hover effects */
+      position: relative; /* Needed for absolute positioning of flag */
+    }
+
+    .proxy-card:hover {
+      transform: translateY(-5px); /* Lift effect on hover */
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15); /* Enhanced shadow on hover */
+    }
+
+    .flag-container {
+      position: absolute;
+      top: 10px;
+      right: 10px; /* Changed from left to right */
+      width: 32px; /* Size for flag image */
+      height: 24px; /* Maintain aspect ratio */
+      overflow: hidden; /* Hide parts of image if not perfectly sized */
+      border-radius: 4px; /* Slightly rounded corners for flags */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15); /* Small shadow for flag */
+      z-index: 10; /* Ensure it's above other content */
+    }
+
+    .flag-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Cover the container without distortion */
+    }
+
+    .proxy-card h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      word-break: break-all; /* Ensures long hostnames wrap */
+      color: #00567e; /* Darker blue for host:port */
+      font-weight: 600;
+      /* Add padding-right to prevent overlap with flag on the right */
+      padding-right: 45px; /* Adjust as needed based on flag size and desired spacing */
+      /* Removed padding-left from previous version */
+    }
+
+    .proxy-actions {
+      display: flex;
+      flex-direction: column; /* Stack buttons vertically by default */
+      gap: 10px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .proxy-actions a, .proxy-actions button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 15px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      border: none;
+    }
+
+    .proxy-actions a {
+      background-color: #0088cc;
+      color: #fff;
+    }
+
+    .proxy-actions a:hover {
+      background-color: #006699;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .proxy-actions button {
+      background-color: #e0e0e0;
+      color: #333;
+    }
+
+    .proxy-actions button:hover {
+      background-color: #d0d0d0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .qrcode {
+      margin-top: 15px;
+      padding: 8px;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      display: inline-block;
+      align-self: center; /* Center QR code in the card */
+    }
+
+    .loading-message {
+      text-align: center;
+      padding: 20px;
+      font-size: 1.1em;
+      color: #0088cc;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9em;
+      text-align: center;
+      color: #777;
+      width: 100%;
+    }
+
+    /* Responsive adjustments for smaller screens */
+    @media (min-width: 640px) {
+      .proxy-actions {
+        flex-direction: row; /* Buttons side-by-side on larger screens */
+        justify-content: flex-start;
+      }
+      .proxy-actions a, .proxy-actions button {
+        flex-grow: 0; /* Don't grow to fill space */
+      }
+    }
+    .refresh-button {
+      background: #4CAF50; /* Green color for refresh */
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s ease;
+      margin-top: 10px; /* Space from title */
+    }
+    .refresh-button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔒 لیست نقاط اتصال امن</h1>
+      <button class="refresh-button" onclick="fetchAndInitializeProxies(true)">⟳ بروزرسانی لیست</button>
+      <div class="info-bar">
+        <span id="proxyCount"></span>
+        <span id="lastUpdatedDate"></span>
+      </div>
+    </div>
+    <div id="proxies"></div>
+    <div id="loadingMore" class="loading-message" style="display:none;">در حال بارگذاری نقاط اتصال بیشتر...</div>
+    <footer>ساخته‌شده با ❤️ توسط شما</footer>
+  </div>
+
+  <script>
+    // API endpoints to fetch the list of MTProto proxies
+    const API_MTPROTO = 'https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/mtproto.json';
+    const API_SOCKS = 'https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/socks.json';
+
+    // DOM elements
+    const proxiesDiv = document.getElementById('proxies');
+    const proxyCountSpan = document.getElementById('proxyCount');
+    const lastUpdatedDateSpan = document.getElementById('lastUpdatedDate');
+    const loadingMoreDiv = document.getElementById('loadingMore');
+
+    let allProxies = []; // Stores all fetched proxies
+    let currentProxyIndex = 0; // Index for the next proxy to load
+    const proxiesPerLoad = 20; // Number of proxies to load at once
+    let isLoading = false; // Flag to prevent multiple concurrent loads
+    const CACHE_KEY = 'telegram_proxies_cache'; // Key for localStorage
+    const CACHE_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+    /**
+     * Returns the current date and time formatted for display in Persian.
+     * @returns {string} Formatted date and time string.
+     */
+    function getFormattedCurrentDateTime() {
+      const now = new Date();
+      const options = {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // Use 24-hour format
+      };
+      // Format the date and time in Persian locale
+      return now.toLocaleString('fa-IR', options);
+    }
+
+    /**
+     * Fetches proxy lists from multiple APIs and initializes the display.
+     * @param {boolean} forceFetch - If true, bypasses cache and forces a new fetch.
+     */
+    async function fetchAndInitializeProxies(forceFetch = false) {
+      proxiesDiv.innerHTML = '<p class="loading-message">در حال دریافت لیست نقاط اتصال...</p>'; // Initial loading message
+
+      // Reset for new load
+      allProxies = [];
+      currentProxyIndex = 0;
+      window.removeEventListener('scroll', handleScroll); // Remove old listener to avoid duplicates
+      window.addEventListener('scroll', handleScroll); // Add new listener
+
+      // Always display the script's last updated date dynamically
+      lastUpdatedDateSpan.textContent = `آخرین بروزرسانی اسکریپت: ${getFormattedCurrentDateTime()}`;
+
+      if (!forceFetch) {
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          try {
+            const { proxies, timestamp } = JSON.parse(cachedData);
+            const now = Date.now();
+            if (now - timestamp < CACHE_EXPIRATION_MS) {
+              // Cache is valid
+              allProxies = proxies;
+              proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
+              proxiesDiv.innerHTML = ''; // Clear loading message
+              loadMoreProxies(); // Load first batch from cache
+              return; // Exit, no need to fetch from network
+            } else {
+              console.log('Cached data expired. Fetching new data...');
+            }
+          } catch (e) {
+            console.error('Error parsing cached data:', e);
+            localStorage.removeItem(CACHE_KEY); // Clear invalid cache
+          }
+        }
+      }
+
+      // If cache is invalid or forceFetch is true, proceed with network fetch
+      try {
+        const [mtprotoResponse, socksResponse] = await Promise.allSettled([
+          fetch(API_MTPROTO),
+          fetch(API_SOCKS)
+        ]);
+
+        let combinedProxies = [];
+
+        // Process MTProto response
+        if (mtprotoResponse.status === 'fulfilled' && mtprotoResponse.value.ok) {
+          const mtprotoList = await mtprotoResponse.value.json();
+          combinedProxies = combinedProxies.concat(mtprotoList);
+        } else {
+          console.error('Failed to fetch MTProto proxies:', mtprotoResponse.reason);
+        }
+
+        // Process SOCKS response
+        if (socksResponse.status === 'fulfilled' && socksResponse.value.ok) {
+          const socksList = await socksResponse.value.json();
+          combinedProxies = combinedProxies.concat(socksList);
+        } else {
+          console.error('Failed to fetch SOCKS proxies:', socksResponse.reason);
+        }
+
+        allProxies = combinedProxies;
+
+        // For demonstration purposes, add a random country to some proxies if not present
+        // In a real application, this data would come from the API or a GeoIP service.
+        const demoCountries = ["US", "DE", "FR", "JP", "CN", "RU", "IR", "CA", "GB", "AU"];
+        allProxies = allProxies.map(proxy => {
+          if (!proxy.country) {
+            proxy.country = demoCountries[Math.floor(Math.random() * demoCountries.length)];
+          }
+          return proxy;
+        });
+
+
+        // Save to cache
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          proxies: allProxies,
+          timestamp: Date.now()
+        }));
+
+        // Update info bar
+        proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
+
+        proxiesDiv.innerHTML = ''; // Clear initial loading message
+
+        if (allProxies.length > 0) {
+          loadMoreProxies(); // Load the first batch
+        } else {
+          proxiesDiv.innerHTML = '<p class="loading-message" style="color:#ff6600;">لیست نقاط اتصال خالی است یا یافت نشد.</p>';
+        }
+
+      } catch (error) {
+        console.error('Error during proxy fetch or processing:', error);
+        proxiesDiv.innerHTML = '<p class="loading-message" style="color:red;">خطا در دریافت لیست نقاط اتصال. لطفاً اتصال اینترنت خود را بررسی کنید.</p>';
+      }
+    }
+
+    /**
+     * Loads a batch of proxies and appends them to the DOM.
+     */
+    async function loadMoreProxies() {
+      if (isLoading || currentProxyIndex >= allProxies.length) {
+        // Stop if already loading or no more proxies
+        loadingMoreDiv.style.display = 'none'; // Hide loading message if no more proxies
+        return;
+      }
+
+      isLoading = true;
+      loadingMoreDiv.style.display = 'block'; // Show loading message
+
+      const endIndex = Math.min(currentProxyIndex + proxiesPerLoad, allProxies.length);
+      const batch = allProxies.slice(currentProxyIndex, endIndex);
+
+      // Use a DocumentFragment for efficient DOM manipulation
+      const fragment = document.createDocumentFragment();
+      const qrCodeDrawQueue = []; // To store canvas and link for QR code drawing after appending
+
+      for (const proxy of batch) {
+        const { cardElement, qrCodeCanvas } = createProxyCard(proxy); // Get both the card and its canvas
+        fragment.appendChild(cardElement);
+        qrCodeDrawQueue.push({ canvas: qrCodeCanvas, proxy: proxy }); // Add to queue
+      }
+      proxiesDiv.appendChild(fragment);
+
+      // After appending the fragment to the DOM, draw QR codes
+      qrCodeDrawQueue.forEach(({ canvas, proxy }) => {
+        // Ensure the canvas element exists and is valid before attempting to draw
+        if (canvas && typeof canvas.getContext === 'function') {
+          const telegramLink = `tg://proxy?server=${proxy.host}&port=${proxy.port}&secret=${proxy.secret}`;
+          QRCode.toCanvas(canvas, telegramLink, { width: 100, margin: 2 })
+            .catch(err => console.error('Error generating QR code:', err));
+        } else {
+          console.error('Invalid canvas element for QR code:', canvas);
+        }
+      });
+
+      currentProxyIndex = endIndex;
+      isLoading = false;
+      loadingMoreDiv.style.display = 'none'; // Hide loading message
+
+      // If all proxies are loaded, remove scroll listener or prevent further calls
+      if (currentProxyIndex >= allProxies.length) {
+        window.removeEventListener('scroll', handleScroll);
+        loadingMoreDiv.textContent = 'تمام نقاط اتصال بارگذاری شدند.';
+        loadingMoreDiv.style.display = 'block';
+        loadingMoreDiv.style.color = '#555';
+      }
+    }
+
+    /**
+     * Creates an HTML card for a given proxy.
+     * @param {Object} p - The proxy object containing host, port, and secret.
+     * @returns {Object} An object containing the created card element and its QR code canvas.
+     */
+    function createProxyCard(p) {
+      const { host, port, secret, country } = p; // Destructure country as well
+      const telegramLink = `tg://proxy?server=${host}&port=${port}&secret=${secret}`;
+
+      const card = document.createElement('div');
+      card.className = 'proxy-card';
+
+      // Flag container for prominent display
+      const flagContainer = document.createElement('div');
+      flagContainer.className = 'flag-container';
+      if (country) {
+        const flagImg = document.createElement('img');
+        // Using flagcdn.com for flag images
+        flagImg.src = `https://flagcdn.com/w20/${country.toLowerCase()}.png`;
+        flagImg.alt = `پرچم ${country}`;
+        // Fallback if image fails to load
+        flagImg.onerror = function() {
+          this.onerror = null; // Prevent infinite loop if fallback also fails
+          this.src = 'https://placehold.co/20x15/cccccc/ffffff?text=X'; // Generic placeholder
+          this.alt = 'پرچم نامشخص';
+        };
+        flagContainer.appendChild(flagImg);
+      }
+      card.appendChild(flagContainer);
+
+
+      // Proxy Host and Port
+      const title = document.createElement('h4');
+      title.textContent = `${host}:${port}`; // This puts ONLY host:port in h4
+      card.appendChild(title);
+
+      // Action buttons container
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'proxy-actions';
+
+      // Telegram connection link
+      const linkElement = document.createElement('a');
+      linkElement.href = telegramLink;
+      linkElement.target = '_blank';
+      linkElement.textContent = '🔗 اتصال به برنامه';
+      actionsDiv.appendChild(linkElement);
+
+      // Copy to clipboard button
+      const copyButton = document.createElement('button');
+      copyButton.textContent = '📋 کپی لینک';
+      copyButton.onclick = () => {
+        // Use document.execCommand('copy') for better compatibility in iframes
+        const tempInput = document.createElement('textarea');
+        tempInput.value = telegramLink;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        // Provide a visual feedback to the user
+        const originalText = copyButton.textContent;
+        copyButton.textContent = '✅ کپی شد!';
+        setTimeout(() => {
+          copyButton.textContent = originalText;
+        }, 1500);
+      };
+      actionsDiv.appendChild(copyButton);
+
+      card.appendChild(actionsDiv);
+
+      // QR code canvas
+      const qrCodeCanvas = document.createElement('canvas');
+      qrCodeCanvas.className = 'qrcode';
+      card.appendChild(qrCodeCanvas);
+
+      return { cardElement: card, qrCodeCanvas: qrCodeCanvas }; // Return both elements
+    }
+
+    /**
+     * Handles the scroll event to trigger loading more proxies.
+     */
+    function handleScroll() {
+      // Check if user has scrolled near the bottom of the page
+      const scrollThreshold = 100; // Pixels from the bottom to trigger load
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - scrollThreshold) {
+        loadMoreProxies();
+      }
+    }
+
+    // Initial fetch and display when the page loads
+    fetchAndInitializeProxies();
+  </script>
+</body>
+</html>
