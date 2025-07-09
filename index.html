@@ -61,6 +61,41 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 14px;
+      color: #555;
+    }
+
+    .filter-group select {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      background-color: #fff;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .filter-group select:focus {
+      border-color: #0088cc;
+    }
+
     #proxies {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -88,19 +123,35 @@
     .flag-container {
       position: absolute;
       top: 10px;
-      right: 10px; /* Changed from left to right */
+      right: 10px; /* Flag on the right */
       width: 32px; /* Size for flag image */
       height: 24px; /* Maintain aspect ratio */
       overflow: hidden; /* Hide parts of image if not perfectly sized */
       border-radius: 4px; /* Slightly rounded corners for flags */
       box-shadow: 0 1px 3px rgba(0,0,0,0.15); /* Small shadow for flag */
       z-index: 10; /* Ensure it's above other content */
+      display: flex; /* Use flex to center globe if it's text */
+      align-items: center;
+      justify-content: center;
     }
 
     .flag-container img {
       width: 100%;
       height: 100%;
       object-fit: cover; /* Cover the container without distortion */
+    }
+
+    .proxy-type-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px; /* Type tag on the left */
+      background-color: #0088cc;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 10;
     }
 
     .proxy-card h4 {
@@ -111,7 +162,8 @@
       font-weight: 600;
       /* Add padding-right to prevent overlap with flag on the right */
       padding-right: 45px; /* Adjust as needed based on flag size and desired spacing */
-      /* Removed padding-left from previous version */
+      /* Add padding-left to prevent overlap with type tag on the left */
+      padding-left: 60px; /* Adjust as needed based on tag size and desired spacing */
     }
 
     .proxy-actions {
@@ -216,6 +268,25 @@
         <span id="lastUpdatedDate"></span>
       </div>
     </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label for="typeFilter">نوع:</label>
+        <select id="typeFilter">
+          <option value="all">همه</option>
+          <option value="MTProto">MTProto</option>
+          <option value="SOCKS">SOCKS</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="countryFilter">کشور:</label>
+        <select id="countryFilter">
+          <option value="all">همه کشورها</option>
+          <!-- Options will be populated by JavaScript -->
+        </select>
+      </div>
+    </div>
+
     <div id="proxies"></div>
     <div id="loadingMore" class="loading-message" style="display:none;">در حال بارگذاری نقاط اتصال بیشتر...</div>
     <footer>ساخته‌شده با ❤️ توسط شما</footer>
@@ -225,12 +296,16 @@
     // API endpoints to fetch the list of MTProto proxies
     const API_MTPROTO = 'https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/mtproto.json';
     const API_SOCKS = 'https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/socks.json';
+    const API_MAHSA_INDEX = 'https://raw.githubusercontent.com/mahsanet/MahsaFreeConfig/refs/heads/main/telegram/index.json'; // Original Mahsa API
+    const API_MAHSANET_TXT = 'https://raw.githubusercontent.com/MahsaNetConfigTopic/proxy/main/proxies.txt'; // New MahsaNet .txt API
 
     // DOM elements
     const proxiesDiv = document.getElementById('proxies');
     const proxyCountSpan = document.getElementById('proxyCount');
     const lastUpdatedDateSpan = document.getElementById('lastUpdatedDate');
     const loadingMoreDiv = document.getElementById('loadingMore');
+    const typeFilterSelect = document.getElementById('typeFilter');
+    const countryFilterSelect = document.getElementById('countryFilter');
 
     let allProxies = []; // Stores all fetched proxies
     let currentProxyIndex = 0; // Index for the next proxy to load
@@ -238,6 +313,112 @@
     let isLoading = false; // Flag to prevent multiple concurrent loads
     const CACHE_KEY = 'telegram_proxies_cache'; // Key for localStorage
     const CACHE_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+    // Mapping of country codes to Persian names
+    const countryNamesFa = {
+      "US": "ایالات متحده",
+      "DE": "آلمان",
+      "FR": "فرانسه",
+      "JP": "ژاپن",
+      "CN": "چین",
+      "RU": "روسیه",
+      "IR": "ایران",
+      "CA": "کانادا",
+      "GB": "بریتانیا",
+      "AU": "استرالیا",
+      "AE": "امارات متحده عربی",
+      "NL": "هلند",
+      "SG": "سنگاپور",
+      "IN": "هند",
+      "BR": "برزیل",
+      "UA": "اوکراین",
+      "TR": "ترکیه",
+      "SE": "سوئد",
+      "FI": "فنلاند",
+      "NO": "نروژ",
+      "CH": "سوئیس",
+      "ES": "اسپانیا",
+      "IT": "ایتالیا",
+      "PL": "لهستان",
+      "CZ": "جمهوری چک",
+      "ZA": "آفریقای جنوبی",
+      "KR": "کره جنوبی",
+      "HK": "هنگ کنگ",
+      "ID": "اندونزی",
+      "VN": "ویتنام",
+      "TH": "تایلند",
+      "MY": "مالزی",
+      "PH": "فیلیپین",
+      "MX": "مکزیک",
+      "AR": "آرژانتین",
+      "CL": "شیلی",
+      "CO": "کلمبیا",
+      "PE": "پرو",
+      "EG": "مصر",
+      "SA": "عربستان سعودی",
+      "IL": "اسرائیل",
+      "PK": "پاکستان",
+      "BD": "بنگلادش",
+      "NG": "نیجریه",
+      "KE": "کنیا",
+      "DZ": "الجزایر",
+      "MA": "مراکش",
+      "TN": "تونس",
+      "IQ": "عراق",
+      "SY": "سوریه",
+      "YE": "یمن",
+      "LB": "لبنان",
+      "JO": "اردن",
+      "KW": "کویت",
+      "QA": "قطر",
+      "BH": "بحرین",
+      "OM": "عمان",
+      "AZ": "آذربایجان",
+      "AM": "ارمنستان",
+      "GE": "گرجستان",
+      "KZ": "قزاقستان",
+      "UZ": "ازبکستان",
+      "TM": "ترکمنستان",
+      "KG": "قرقیزستان",
+      "TJ": "تاجیکستان",
+      "AF": "افغانستان",
+      "NP": "نپال",
+      "LK": "سری‌لانکا",
+      "MM": "میانمار",
+      "LA": "لائوس",
+      "KH": "کامبوج",
+      "MO": "ماکائو",
+      "MN": "مغولستان",
+      "NZ": "نیوزلند",
+      "AT": "اتریش",
+      "BE": "بلژیک",
+      "DK": "دانمارک",
+      "GR": "یونان",
+      "HU": "مجارستان",
+      "IE": "ایرلند",
+      "LU": "لوکزامبورگ",
+      "PT": "پرتغال",
+      "RO": "رومانی",
+      "SK": "اسلواکی",
+      "SI": "اسلوونی",
+      "HR": "کرواسی",
+      "BA": "بوسنی و هرزگوین",
+      "RS": "صربستان",
+      "BG": "بلغارستان",
+      "MD": "مولداوی",
+      "AL": "آلبانی",
+      "MK": "مقدونیه شمالی",
+      "CY": "قبرس",
+      "MT": "مالت",
+      "IS": "ایسلند",
+      "LT": "لیتوانی",
+      "LV": "لتونی",
+      "EE": "استونی",
+      "BY": "بلاروس",
+      "EU": "اتحادیه اروپا", // Added EU
+      // Special entry for unknown country
+      "UNKNOWN": "نامعلوم"
+    };
 
     /**
      * Returns the current date and time formatted for display in Persian.
@@ -257,6 +438,113 @@
       // Format the date and time in Persian locale
       return now.toLocaleString('fa-IR', options);
     }
+
+    /**
+     * Parses a Telegram proxy link (t.me/proxy?...) and extracts host, port, and secret.
+     * This function is made more robust to handle both http/https and tg protocols.
+     * @param {string} url - The Telegram proxy URL string.
+     * @returns {Object|null} An object with host, port, secret, type, and country, or null if parsing fails.
+     */
+    function parseTelegramProxyLink(url) {
+        // Remove protocol and domain part to simplify regex matching for parameters
+        let cleanUrl = url.replace(/^(https?:\/\/t\.me\/proxy\?|tg:\/\/proxy\?)/, '');
+
+        // Updated regex to capture any characters for secret, including +, /, and =
+        // The last group `([^&]+)` is now more flexible to capture various secret formats
+        const regex = /server=([^&]+)&port=(\d+)&secret=([^&]+)/;
+        const match = cleanUrl.match(regex);
+
+        if (match && match.length === 4) {
+            const host = match[1];
+            const port = match[2];
+            const secret = match[3];
+            return { host, port, secret, type: 'MTProto', country: 'UNKNOWN' }; // Default to UNKNOWN country
+        }
+        console.error("Failed to parse telegram proxy link using regex:", url);
+        return null;
+    }
+
+    /**
+     * Populates the country filter dropdown with unique countries from the fetched proxies.
+     * @param {Array} proxies - The array of all fetched proxy objects.
+     */
+    function populateCountryFilter(proxies) {
+      // Calculate counts for each country
+      const countryCounts = {};
+      proxies.forEach(p => {
+        const countryCode = p.country || 'UNKNOWN'; // Ensure UNKNOWN is counted
+        countryCounts[countryCode] = (countryCounts[countryCode] || 0) + 1;
+      });
+
+      // Get unique country codes, filter out null/undefined, and sort alphabetically
+      const uniqueCountries = [...new Set(proxies.map(p => p.country).filter(Boolean))].sort((a, b) => {
+        const nameA = countryNamesFa[a] || a;
+        const nameB = countryNamesFa[b] || b;
+        return nameA.localeCompare(nameB, 'fa', { sensitivity: 'base' });
+      });
+
+      // Ensure 'UNKNOWN' is always at the end if it exists
+      if (uniqueCountries.includes('UNKNOWN')) {
+        uniqueCountries.splice(uniqueCountries.indexOf('UNKNOWN'), 1);
+        uniqueCountries.push('UNKNOWN');
+      }
+
+
+      countryFilterSelect.innerHTML = '<option value="all">همه کشورها</option>'; // Always add 'All Countries' option
+      uniqueCountries.forEach(countryCode => {
+        const option = document.createElement('option');
+        option.value = countryCode;
+        // Display Persian country name in the dropdown options with count
+        const displayName = countryNamesFa[countryCode] || countryCode;
+        const count = countryCounts[countryCode] || 0;
+        option.textContent = `${displayName} (${count})`;
+        countryFilterSelect.appendChild(option);
+      });
+    }
+
+    /**
+     * Applies the selected filters to the allProxies list.
+     * @returns {Array} The filtered list of proxies.
+     */
+    function getFilteredProxies() {
+      let filtered = allProxies;
+      const selectedType = typeFilterSelect.value;
+      const selectedCountry = countryFilterSelect.value;
+
+      if (selectedType !== 'all') {
+        filtered = filtered.filter(p => p.type === selectedType);
+      }
+      if (selectedCountry !== 'all') {
+        filtered = filtered.filter(p => p.country === selectedCountry);
+      }
+      return filtered;
+    }
+
+    /**
+     * Deduplicates a list of proxies, prioritizing proxies with known countries.
+     * @param {Array} proxies - The array of proxy objects to deduplicate.
+     * @returns {Array} A new array with unique proxies.
+     */
+    function deduplicateProxies(proxies) {
+        const uniqueProxiesMap = new Map(); // Key: `${host}:${port}:${secret}`, Value: proxy object
+
+        for (const proxy of proxies) {
+            const key = `${proxy.host}:${proxy.port}:${proxy.secret}`;
+            if (!uniqueProxiesMap.has(key)) {
+                uniqueProxiesMap.set(key, proxy);
+            } else {
+                // If a duplicate exists, check if the current proxy has a known country
+                const existingProxy = uniqueProxiesMap.get(key);
+                if (existingProxy.country === 'UNKNOWN' && proxy.country !== 'UNKNOWN') {
+                    // Replace the existing UNKNOWN proxy with the known one
+                    uniqueProxiesMap.set(key, proxy);
+                }
+                // Otherwise, keep the existing one (either both are known, or existing is known, or both are unknown)
+            }
+        }
+        return Array.from(uniqueProxiesMap.values());
+    }
+
 
     /**
      * Fetches proxy lists from multiple APIs and initializes the display.
@@ -285,6 +573,7 @@
               allProxies = proxies;
               proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
               proxiesDiv.innerHTML = ''; // Clear loading message
+              populateCountryFilter(allProxies); // Populate filter from cache
               loadMoreProxies(); // Load first batch from cache
               return; // Exit, no need to fetch from network
             } else {
@@ -299,9 +588,11 @@
 
       // If cache is invalid or forceFetch is true, proceed with network fetch
       try {
-        const [mtprotoResponse, socksResponse] = await Promise.allSettled([
+        const [mtprotoResponse, socksResponse, mahsaIndexResponse, mahsaNetTxtResponse] = await Promise.allSettled([
           fetch(API_MTPROTO),
-          fetch(API_SOCKS)
+          fetch(API_SOCKS),
+          fetch(API_MAHSA_INDEX),
+          fetch(API_MAHSANET_TXT)
         ]);
 
         let combinedProxies = [];
@@ -309,6 +600,7 @@
         // Process MTProto response
         if (mtprotoResponse.status === 'fulfilled' && mtprotoResponse.value.ok) {
           const mtprotoList = await mtprotoResponse.value.json();
+          mtprotoList.forEach(p => p.type = 'MTProto'); // Add type
           combinedProxies = combinedProxies.concat(mtprotoList);
         } else {
           console.error('Failed to fetch MTProto proxies:', mtprotoResponse.reason);
@@ -317,23 +609,57 @@
         // Process SOCKS response
         if (socksResponse.status === 'fulfilled' && socksResponse.value.ok) {
           const socksList = await socksResponse.value.json();
+          socksList.forEach(p => {
+            p.type = 'SOCKS'; // Add type
+            if (p.ip) { // Map 'ip' to 'host' for consistency
+              p.host = p.ip;
+              delete p.ip;
+            }
+          });
           combinedProxies = combinedProxies.concat(socksList);
         } else {
           console.error('Failed to fetch SOCKS proxies:', socksResponse.reason);
         }
 
-        allProxies = combinedProxies;
+        // Process MahsaFreeConfig (index.json) response
+        if (mahsaIndexResponse.status === 'fulfilled' && mahsaIndexResponse.value.ok) {
+            const mahsaContentText = await mahsaIndexResponse.value.text();
+            let mahsaLinks = [];
+            try {
+                const parsedJson = JSON.parse(mahsaContentText);
+                if (Array.isArray(parsedJson)) {
+                    mahsaLinks = parsedJson;
+                } else if (typeof parsedJson === 'string') {
+                    mahsaLinks = parsedJson.split('\n').map(line => line.trim()).filter(Boolean);
+                }
+            } catch (e) {
+                mahsaLinks = mahsaContentText.split('\n').map(line => line.trim()).filter(Boolean);
+            }
 
-        // For demonstration purposes, add a random country to some proxies if not present
-        // In a real application, this data would come from the API or a GeoIP service.
-        const demoCountries = ["US", "DE", "FR", "JP", "CN", "RU", "IR", "CA", "GB", "AU"];
-        allProxies = allProxies.map(proxy => {
-          if (!proxy.country) {
-            proxy.country = demoCountries[Math.floor(Math.random() * demoCountries.length)];
-          }
-          return proxy;
-        });
+            const mahsaProxies = mahsaLinks
+                .filter(link => typeof link === 'string' && (link.startsWith('https://t.me/proxy') || link.startsWith('tg://proxy')))
+                .map(link => parseTelegramProxyLink(link))
+                .filter(Boolean);
+            combinedProxies = combinedProxies.concat(mahsaProxies);
+        } else {
+            console.error('Failed to fetch MahsaFreeConfig proxies:', mahsaIndexResponse.reason);
+        }
 
+        // Process MahsaNetConfigTopic (proxies.txt) response
+        if (mahsaNetTxtResponse.status === 'fulfilled' && mahsaNetTxtResponse.value.ok) {
+            const mahsaNetTxtContentText = await mahsaNetTxtResponse.value.text();
+            const mahsaNetTxtLinks = mahsaNetTxtContentText.split('\n')
+                                                          .map(line => line.trim())
+                                                          .filter(line => line.startsWith('tg://proxy') || line.startsWith('https://t.me/proxy'));
+
+            const mahsaNetTxtProxies = mahsaNetTxtLinks.map(link => parseTelegramProxyLink(link)).filter(Boolean);
+            combinedProxies = combinedProxies.concat(mahsaNetTxtProxies);
+        } else {
+            console.error('Failed to fetch MahsaNetConfigTopic proxies:', mahsaNetTxtResponse.reason);
+        }
+
+        // Deduplicate proxies after combining all sources
+        allProxies = deduplicateProxies(combinedProxies);
 
         // Save to cache
         localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -343,6 +669,11 @@
 
         // Update info bar
         proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
+        populateCountryFilter(allProxies); // Populate filter after fetching
+        // Reset filters to default 'all' after new fetch
+        typeFilterSelect.value = 'all';
+        countryFilterSelect.value = 'all';
+
 
         proxiesDiv.innerHTML = ''; // Clear initial loading message
 
@@ -362,17 +693,30 @@
      * Loads a batch of proxies and appends them to the DOM.
      */
     async function loadMoreProxies() {
-      if (isLoading || currentProxyIndex >= allProxies.length) {
-        // Stop if already loading or no more proxies
+      if (isLoading) {
+        return;
+      }
+
+      const filtered = getFilteredProxies();
+      if (currentProxyIndex >= filtered.length) {
         loadingMoreDiv.style.display = 'none'; // Hide loading message if no more proxies
+        if (filtered.length === 0 && proxiesDiv.innerHTML === '') { // Show message if no proxies after filter
+           proxiesDiv.innerHTML = '<p class="loading-message" style="color:#ff6600;">هیچ نقطه اتصالی با فیلترهای انتخاب شده یافت نشد.</p>';
+        } else if (currentProxyIndex > 0) { // Only show "all loaded" if some proxies were loaded
+            loadingMoreDiv.textContent = 'تمام نقاط اتصال بارگذاری شدند.';
+            loadingMoreDiv.style.display = 'block';
+            loadingMoreDiv.style.color = '#555';
+        }
         return;
       }
 
       isLoading = true;
       loadingMoreDiv.style.display = 'block'; // Show loading message
+      loadingMoreDiv.textContent = 'در حال بارگذاری نقاط اتصال بیشتر...';
 
-      const endIndex = Math.min(currentProxyIndex + proxiesPerLoad, allProxies.length);
-      const batch = allProxies.slice(currentProxyIndex, endIndex);
+
+      const endIndex = Math.min(currentProxyIndex + proxiesPerLoad, filtered.length);
+      const batch = filtered.slice(currentProxyIndex, endIndex);
 
       // Use a DocumentFragment for efficient DOM manipulation
       const fragment = document.createDocumentFragment();
@@ -389,6 +733,7 @@
       qrCodeDrawQueue.forEach(({ canvas, proxy }) => {
         // Ensure the canvas element exists and is valid before attempting to draw
         if (canvas && typeof canvas.getContext === 'function') {
+          // Corrected link format: use & for all parameters after the first one
           const telegramLink = `tg://proxy?server=${proxy.host}&port=${proxy.port}&secret=${proxy.secret}`;
           QRCode.toCanvas(canvas, telegramLink, { width: 100, margin: 2 })
             .catch(err => console.error('Error generating QR code:', err));
@@ -399,25 +744,21 @@
 
       currentProxyIndex = endIndex;
       isLoading = false;
-      loadingMoreDiv.style.display = 'none'; // Hide loading message
-
-      // If all proxies are loaded, remove scroll listener or prevent further calls
-      if (currentProxyIndex >= allProxies.length) {
-        window.removeEventListener('scroll', handleScroll);
-        loadingMoreDiv.textContent = 'تمام نقاط اتصال بارگذاری شدند.';
-        loadingMoreDiv.style.display = 'block';
-        loadingMoreDiv.style.color = '#555';
+      // Only hide if not all proxies are loaded, otherwise the "تمام نقاط اتصال بارگذاری شدند" message should remain
+      if (currentProxyIndex < filtered.length) {
+          loadingMoreDiv.style.display = 'none';
       }
     }
 
     /**
      * Creates an HTML card for a given proxy.
-     * @param {Object} p - The proxy object containing host, port, and secret.
+     * @param {Object} p - The proxy object containing host, port, secret, and type/country.
      * @returns {Object} An object containing the created card element and its QR code canvas.
      */
     function createProxyCard(p) {
-      const { host, port, secret, country } = p; // Destructure country as well
-      const telegramLink = `tg://proxy?server=${host}&port=${port}&secret=${secret}`;
+      const { host, port, secret, country, type } = p; // Destructure country and type
+      // Corrected link format: use & for all parameters after the first one
+      const telegramLink = `tg://proxy?server=${host}&port=${port}&secret=${secret}`; 
 
       const card = document.createElement('div');
       card.className = 'proxy-card';
@@ -425,25 +766,38 @@
       // Flag container for prominent display
       const flagContainer = document.createElement('div');
       flagContainer.className = 'flag-container';
-      if (country) {
+      if (country && country !== 'UNKNOWN') {
         const flagImg = document.createElement('img');
         // Using flagcdn.com for flag images
         flagImg.src = `https://flagcdn.com/w20/${country.toLowerCase()}.png`;
-        flagImg.alt = `پرچم ${country}`;
+        // Use Persian country name for alt text
+        flagImg.alt = `پرچم ${countryNamesFa[country] || country}`;
         // Fallback if image fails to load
         flagImg.onerror = function() {
           this.onerror = null; // Prevent infinite loop if fallback also fails
-          this.src = 'https://placehold.co/20x15/cccccc/ffffff?text=X'; // Generic placeholder
+          this.src = 'https://placehold.co/20x15/cccccc/ffffff?text=?'; // Generic placeholder for unknown flag image
           this.alt = 'پرچم نامشخص';
         };
         flagContainer.appendChild(flagImg);
+      } else if (country === 'UNKNOWN') {
+        // Placeholder for UNKNOWN country (distinct image)
+        const unknownImg = document.createElement('img');
+        unknownImg.src = 'https://placehold.co/32x24/888888/ffffff?text=???'; // Distinct grey background with ???
+        unknownImg.alt = 'کشور نامعلوم';
+        flagContainer.appendChild(unknownImg);
       }
       card.appendChild(flagContainer);
+
+      // Proxy Type Tag (MTProto/SOCKS)
+      const typeTag = document.createElement('span');
+      typeTag.className = 'proxy-type-tag';
+      typeTag.textContent = type;
+      card.appendChild(typeTag);
 
 
       // Proxy Host and Port
       const title = document.createElement('h4');
-      title.textContent = `${host}:${port}`; // This puts ONLY host:port in h4
+      title.textContent = `${host}:${port}`;
       card.appendChild(title);
 
       // Action buttons container
@@ -497,6 +851,19 @@
         loadMoreProxies();
       }
     }
+
+    // Event listeners for filter changes
+    typeFilterSelect.addEventListener('change', () => {
+        proxiesDiv.innerHTML = ''; // Clear current proxies
+        currentProxyIndex = 0; // Reset index
+        loadMoreProxies(); // Load filtered results
+    });
+    countryFilterSelect.addEventListener('change', () => {
+        proxiesDiv.innerHTML = ''; // Clear current proxies
+        currentProxyIndex = 0; // Reset index
+        loadMoreProxies(); // Load filtered results
+    });
+
 
     // Initial fetch and display when the page loads
     fetchAndInitializeProxies();
