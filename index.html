@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نقاط اتصال امن</title>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <!-- QRCode.js library for QR code generation -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <!-- LZString for compression/decompression of localStorage data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
   <style>
     /* Import Inter font for a modern look */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -208,15 +213,6 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
-    .qrcode {
-      margin-top: 15px;
-      padding: 8px;
-      background-color: #f0f0f0;
-      border-radius: 8px;
-      display: inline-block;
-      align-self: center; /* Center QR code in the card */
-    }
-
     .loading-message {
       text-align: center;
       padding: 20px;
@@ -256,13 +252,115 @@
     .refresh-button:hover {
       background-color: #45a049;
     }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      display: none; /* Hidden by default */
+    }
+
+    .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      position: relative;
+      max-width: 90%;
+      width: 400px; /* Fixed width for modal */
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .close-button {
+      position: absolute;
+      top: 15px;
+      left: 15px; /* Position on the left for RTL */
+      font-size: 28px;
+      cursor: pointer;
+      color: #888;
+      transition: color 0.2s;
+    }
+
+    .close-button:hover {
+      color: #333;
+    }
+
+    .modal-title {
+      color: #0088cc;
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .modal-qrcode-canvas {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 5px;
+      background-color: #f9f9f9;
+      margin-bottom: 20px;
+      max-width: 100%; /* Ensure canvas is responsive within modal */
+      height: auto;
+    }
+
+    .modal-link-text {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 8px;
+    }
+
+    .modal-link-textarea {
+      width: calc(100% - 20px); /* Adjust width for padding */
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: 'Inter', monospace;
+      font-size: 13px;
+      resize: vertical; /* Allow vertical resizing */
+      min-height: 60px; /* Minimum height */
+      text-align: left; /* Keep LTR for link */
+      direction: ltr; /* Ensure LTR for link */
+    }
+
+    .modal-copy-button {
+      background-color: #0088cc;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px; /* Space between icon and text */
+    }
+
+    .modal-copy-button:hover {
+      background-color: #006699;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>🔒 لیست نقاط اتصال امن</h1>
-      <button class="refresh-button" onclick="fetchAndInitializeProxies(true)">⟳ بروزرسانی لیست</button>
+      <button class="refresh-button" onclick="fetchAndInitializeProxies(true)">
+        <i class="fas fa-sync-alt"></i> بروزرسانی لیست
+      </button>
       <div class="info-bar">
         <span id="proxyCount"></span>
         <span id="lastUpdatedDate"></span>
@@ -292,6 +390,20 @@
     <footer>ساخته‌شده با ❤️ توسط شما</footer>
   </div>
 
+  <!-- QR Code Modal Structure -->
+  <div id="qrModal" class="modal-overlay">
+    <div class="modal-content">
+      <span class="close-button" onclick="closeQrModal()">&times;</span>
+      <h3 class="modal-title">کد QR پروکسی</h3>
+      <canvas id="modalQrCanvas" class="modal-qrcode-canvas"></canvas>
+      <p class="modal-link-text">لینک پروکسی:</p>
+      <textarea id="modalProxyLink" class="modal-link-textarea" readonly></textarea>
+      <button class="modal-copy-button" onclick="copyModalLink()">
+        <i class="fas fa-copy"></i> کپی لینک
+      </button>
+    </div>
+  </div>
+
   <script>
     // API endpoints to fetch the list of MTProto proxies
     const API_MTPROTO = 'https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/mtproto.json';
@@ -306,6 +418,11 @@
     const loadingMoreDiv = document.getElementById('loadingMore');
     const typeFilterSelect = document.getElementById('typeFilter');
     const countryFilterSelect = document.getElementById('countryFilter');
+    const qrModal = document.getElementById('qrModal');
+    const modalQrCanvas = document.getElementById('modalQrCanvas');
+    const modalProxyLink = document.getElementById('modalProxyLink');
+    const modalCopyButton = document.querySelector('#qrModal .modal-copy-button');
+
 
     let allProxies = []; // Stores all fetched proxies
     let currentProxyIndex = 0; // Index for the next proxy to load
@@ -419,6 +536,18 @@
       // Special entry for unknown country
       "UNKNOWN": "نامعلوم"
     };
+
+    /**
+     * Handles the scroll event to trigger loading more proxies.
+     */
+    function handleScroll() {
+      // Check if user has scrolled near the bottom of the page
+      const scrollThreshold = 100; // Pixels from the bottom to trigger load
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - scrollThreshold) {
+        loadMoreProxies();
+      }
+    }
+
 
     /**
      * Returns the current date and time formatted for display in Persian.
@@ -566,21 +695,27 @@
         const cachedData = localStorage.getItem(CACHE_KEY);
         if (cachedData) {
           try {
-            const { proxies, timestamp } = JSON.parse(cachedData);
-            const now = Date.now();
-            if (now - timestamp < CACHE_EXPIRATION_MS) {
-              // Cache is valid
-              allProxies = proxies;
-              proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
-              proxiesDiv.innerHTML = ''; // Clear loading message
-              populateCountryFilter(allProxies); // Populate filter from cache
-              loadMoreProxies(); // Load first batch from cache
-              return; // Exit, no need to fetch from network
+            const decompressedData = LZString.decompressFromUTF16(cachedData);
+            if (decompressedData) {
+                const { proxies, timestamp } = JSON.parse(decompressedData);
+                const now = Date.now();
+                if (now - timestamp < CACHE_EXPIRATION_MS) {
+                    // Cache is valid
+                    allProxies = proxies;
+                    proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
+                    proxiesDiv.innerHTML = ''; // Clear loading message
+                    populateCountryFilter(allProxies); // Populate filter from cache
+                    loadMoreProxies(); // Load first batch from cache
+                    return; // Exit, no need to fetch from network
+                } else {
+                    console.log('Cached data expired. Fetching new data...');
+                }
             } else {
-              console.log('Cached data expired. Fetching new data...');
+                console.error('Decompression failed or returned null.');
+                localStorage.removeItem(CACHE_KEY); // Clear potentially corrupted cache
             }
           } catch (e) {
-            console.error('Error parsing cached data:', e);
+            console.error('Error parsing or decompressing cached data:', e);
             localStorage.removeItem(CACHE_KEY); // Clear invalid cache
           }
         }
@@ -661,11 +796,11 @@
         // Deduplicate proxies after combining all sources
         allProxies = deduplicateProxies(combinedProxies);
 
-        // Save to cache
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
+        // Save to cache (compressed)
+        localStorage.setItem(CACHE_KEY, LZString.compressToUTF16(JSON.stringify({
           proxies: allProxies,
           timestamp: Date.now()
-        }));
+        })));
 
         // Update info bar
         proxyCountSpan.textContent = `تعداد کل نقاط اتصال: ${allProxies.length}`;
@@ -720,27 +855,12 @@
 
       // Use a DocumentFragment for efficient DOM manipulation
       const fragment = document.createDocumentFragment();
-      const qrCodeDrawQueue = []; // To store canvas and link for QR code drawing after appending
 
       for (const proxy of batch) {
-        const { cardElement, qrCodeCanvas } = createProxyCard(proxy); // Get both the card and its canvas
+        const cardElement = createProxyCard(proxy); // Get only the card element
         fragment.appendChild(cardElement);
-        qrCodeDrawQueue.push({ canvas: qrCodeCanvas, proxy: proxy }); // Add to queue
       }
       proxiesDiv.appendChild(fragment);
-
-      // After appending the fragment to the DOM, draw QR codes
-      qrCodeDrawQueue.forEach(({ canvas, proxy }) => {
-        // Ensure the canvas element exists and is valid before attempting to draw
-        if (canvas && typeof canvas.getContext === 'function') {
-          // Corrected link format: use & for all parameters after the first one
-          const telegramLink = `tg://proxy?server=${proxy.host}&port=${proxy.port}&secret=${proxy.secret}`;
-          QRCode.toCanvas(canvas, telegramLink, { width: 100, margin: 2 })
-            .catch(err => console.error('Error generating QR code:', err));
-        } else {
-          console.error('Invalid canvas element for QR code:', canvas);
-        }
-      });
 
       currentProxyIndex = endIndex;
       isLoading = false;
@@ -753,11 +873,10 @@
     /**
      * Creates an HTML card for a given proxy.
      * @param {Object} p - The proxy object containing host, port, secret, and type/country.
-     * @returns {Object} An object containing the created card element and its QR code canvas.
+     * @returns {HTMLElement} The created card element.
      */
     function createProxyCard(p) {
       const { host, port, secret, country, type } = p; // Destructure country and type
-      // Corrected link format: use & for all parameters after the first one
       const telegramLink = `tg://proxy?server=${host}&port=${port}&secret=${secret}`; 
 
       const card = document.createElement('div');
@@ -808,12 +927,12 @@
       const linkElement = document.createElement('a');
       linkElement.href = telegramLink;
       linkElement.target = '_blank';
-      linkElement.textContent = '🔗 اتصال به برنامه';
+      linkElement.innerHTML = '<i class="fas fa-link"></i> اتصال به برنامه'; // Font Awesome icon
       actionsDiv.appendChild(linkElement);
 
       // Copy to clipboard button
       const copyButton = document.createElement('button');
-      copyButton.textContent = '📋 کپی لینک';
+      copyButton.innerHTML = '<i class="fas fa-copy"></i> کپی لینک'; // Font Awesome icon
       copyButton.onclick = () => {
         // Use document.execCommand('copy') for better compatibility in iframes
         const tempInput = document.createElement('textarea');
@@ -823,33 +942,60 @@
         document.execCommand('copy');
         document.body.removeChild(tempInput);
         // Provide a visual feedback to the user
-        const originalText = copyButton.textContent;
-        copyButton.textContent = '✅ کپی شد!';
+        const originalHTML = copyButton.innerHTML;
+        copyButton.innerHTML = '<i class="fas fa-check"></i> کپی شد!'; // Check icon
         setTimeout(() => {
-          copyButton.textContent = originalText;
+          copyButton.innerHTML = originalHTML;
         }, 1500);
       };
       actionsDiv.appendChild(copyButton);
 
+      // QR code button
+      const qrButton = document.createElement('button');
+      qrButton.innerHTML = '<i class="fas fa-qrcode"></i> نمایش QR'; // Font Awesome icon
+      qrButton.onclick = () => openQrModal(telegramLink); // Call the new modal function
+      actionsDiv.appendChild(qrButton);
+
       card.appendChild(actionsDiv);
 
-      // QR code canvas
-      const qrCodeCanvas = document.createElement('canvas');
-      qrCodeCanvas.className = 'qrcode';
-      card.appendChild(qrCodeCanvas);
-
-      return { cardElement: card, qrCodeCanvas: qrCodeCanvas }; // Return both elements
+      return card; // Return only the card element
     }
 
     /**
-     * Handles the scroll event to trigger loading more proxies.
+     * Opens the QR code modal and generates the QR code.
+     * @param {string} link - The Telegram proxy link to generate QR code for.
      */
-    function handleScroll() {
-      // Check if user has scrolled near the bottom of the page
-      const scrollThreshold = 100; // Pixels from the bottom to trigger load
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - scrollThreshold) {
-        loadMoreProxies();
-      }
+    function openQrModal(link) {
+        qrModal.style.display = 'flex'; // Show the modal
+        modalProxyLink.value = link; // Set the link in the textarea
+        
+        // Clear previous QR code if any
+        const context = modalQrCanvas.getContext('2d');
+        context.clearRect(0, 0, modalQrCanvas.width, modalQrCanvas.height);
+
+        // Generate new QR code
+        QRCode.toCanvas(modalQrCanvas, link, { width: 200, margin: 2 }) // Increased size for better visibility in modal
+            .catch(err => console.error('Error generating QR code in modal:', err));
+    }
+
+    /**
+     * Closes the QR code modal.
+     */
+    function closeQrModal() {
+        qrModal.style.display = 'none'; // Hide the modal
+    }
+
+    /**
+     * Copies the proxy link from the modal to the clipboard.
+     */
+    function copyModalLink() {
+        modalProxyLink.select();
+        document.execCommand('copy');
+        const originalHTML = modalCopyButton.innerHTML;
+        modalCopyButton.innerHTML = '<i class="fas fa-check"></i> کپی شد!';
+        setTimeout(() => {
+          modalCopyButton.innerHTML = originalHTML;
+        }, 1500);
     }
 
     // Event listeners for filter changes
